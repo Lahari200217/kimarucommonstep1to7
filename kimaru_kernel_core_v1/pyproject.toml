@@ -1,0 +1,19 @@
+[project]
+name = "kimaru-kernel-core"
+version = "0.1.0"
+description = "Kimaru Kernel Common Core v1 (Steps 1-5)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.24",
+  "pydantic>=2.6",
+  "python-multipart>=0.0.9",
+]
+
+[project.scripts]
+kimaru-core-demo = "kimaru_core.app.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

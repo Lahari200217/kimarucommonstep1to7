@@ -1,0 +1,18 @@
+{
+  "core_version": "1.0.0",
+  "zones": [
+    {
+      "zone_id": "zone1",
+      "package": "kimaru_zone1",
+      "entrypoint": "kimaru_zone1.kernel:Zone1Kernel",
+      "version": "0.1.0",
+      "enabled": true,
+      "config": {}
+    }
+  ],
+  "federation": {
+    "enabled": false,
+    "node_id": "node-1",
+    "trust_default": "YELLOW_INTRA"
+  }
+}

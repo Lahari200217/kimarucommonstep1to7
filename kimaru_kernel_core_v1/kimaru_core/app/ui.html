@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Kimaru Kernel Common Core Demo</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px;max-width:1100px}
+    .row{display:flex;gap:16px;align-items:flex-start}
+    .card{border:1px solid #ddd;border-radius:12px;padding:12px;flex:1}
+    button{padding:8px 12px;border-radius:10px;border:1px solid #ccc;background:#fff;cursor:pointer}
+    input,textarea,select{width:100%;padding:8px;border-radius:10px;border:1px solid #ccc}
+    pre{background:#0b1020;color:#e8e8e8;padding:10px;border-radius:12px;overflow:auto}
+    small{color:#666}
+  </style>
+</head>
+<body>
+<h1>Kimaru Kernel Common Core — Team Test UI</h1>
+<p><small>This UI validates Steps 1–5: sessions/epochs, scripts, agents, artifacts, pointers, audit events, realtime stream.</small></p>
+
+<div class="row">
+  <div class="card">
+    <h3>1) Sessions</h3>
+    <button onclick="createSession()">Create Session</button>
+    <button onclick="refreshSessions()">Refresh</button>
+    <select id="sessionSel" onchange="onSessionChange()"></select>
+    <pre id="sessionsOut"></pre>
+  </div>
+
+  <div class="card">
+    <h3>2) Epochs</h3>
+    <button onclick="createEpoch()">Create Epoch</button>
+    <select id="epochSel"></select>
+    <pre id="epochsOut"></pre>
+  </div>
+</div>
+
+<div class="row" style="margin-top:16px">
+  <div class="card">
+    <h3>3) Upload Agent Script (KimaruScript v1)</h3>
+    <textarea id="scriptTxt" rows="14"></textarea>
+    <p><small>Optional pointer key (e.g., <code>script/demo/latest</code>)</small></p>
+    <input id="scriptPointer" placeholder="pointer key (optional)"/>
+    <button onclick="uploadScript()">Store Script Artifact</button>
+    <pre id="scriptOut"></pre>
+  </div>
+
+  <div class="card">
+    <h3>4) Register Scripted Agent</h3>
+    <input id="agentType" placeholder="agent_type_id (e.g., core.cleaner_agent)"/>
+    <input id="agentVer" placeholder="version (e.g., 1.0.0)" value="1.0.0"/>
+    <select id="secFlag">
+      <option>GREEN</option><option>YELLOW</option><option>RED</option>
+    </select>
+    <input id="scriptKind" placeholder="script kind" value="agent_script"/>
+    <input id="scriptId" placeholder="script artifact_id"/>
+    <button onclick="registerAgent()">Register</button>
+    <pre id="agentsOut"></pre>
+  </div>
+</div>
+
+<div class="row" style="margin-top:16px">
+  <div class="card">
+    <h3>5) Run Agent</h3>
+    <input id="runAgentType" placeholder="agent_type_id to run"/>
+    <input id="actorId" placeholder="actor_id (operator/admin/governor)" value="operator"/>
+    <textarea id="runInputs" rows="10"></textarea>
+    <button onclick="runAgent()">Run</button>
+    <pre id="runOut"></pre>
+  </div>
+
+  <div class="card">
+    <h3>6) Audit & Realtime</h3>
+    <button onclick="refreshEvents()">Refresh Events</button>
+    <button onclick="refreshPointers()">Refresh Pointers</button>
+    <pre id="eventsOut"></pre>
+    <pre id="pointersOut"></pre>
+    <h4>Realtime Stream</h4>
+    <pre id="rtOut"></pre>
+  </div>
+</div>
+
+<script>
+const api = (p)=>fetch(p).then(r=>r.json());
+const post = (p,b)=>fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
+
+function pretty(o){ return JSON.stringify(o,null,2); }
+
+async function createSession(){
+  const s = await post('/api/sessions',{mode:'live'});
+  await refreshSessions();
+  document.getElementById('sessionsOut').textContent = pretty(s);
+}
+
+async function refreshSessions(){
+  const ss = await api('/api/sessions?limit=50');
+  const sel = document.getElementById('sessionSel');
+  sel.innerHTML = ss.map(s=>`<option value="${s.session_id}">${s.session_id}</option>`).join('');
+  document.getElementById('sessionsOut').textContent = pretty(ss);
+  await onSessionChange();
+}
+
+async function onSessionChange(){
+  const sid = document.getElementById('sessionSel').value;
+  if(!sid) return;
+  const epochs = await api(`/api/sessions/${sid}/epochs`);
+  const esel = document.getElementById('epochSel');
+  esel.innerHTML = epochs.map(e=>`<option value="${e.epoch_id}">#${e.sequence_no} ${e.epoch_id}</option>`).join('');
+  document.getElementById('epochsOut').textContent = pretty(epochs);
+  await refreshEvents();
+}
+
+async function createEpoch(){
+  const sid = document.getElementById('sessionSel').value;
+  if(!sid) return alert('create a session first');
+  const e = await post(`/api/sessions/${sid}/epochs`,{trigger:{type:'manual'}});
+  await onSessionChange();
+  document.getElementById('epochsOut').textContent = pretty(e);
+}
+
+async function uploadScript(){
+  const txt = document.getElementById('scriptTxt').value;
+  const pointer = document.getElementById('scriptPointer').value || null;
+  let script;
+  try{ script = JSON.parse(txt); }catch(e){ return alert('script must be JSON'); }
+  const ref = await post('/api/scripts',{script, pointer_key:pointer});
+  document.getElementById('scriptOut').textContent = pretty(ref);
+  document.getElementById('scriptId').value = ref.artifact_id;
+}
+
+async function registerAgent(){
+  const agent_type_id = document.getElementById('agentType').value;
+  const version = document.getElementById('agentVer').value || '1.0.0';
+  const security_flag = document.getElementById('secFlag').value;
+  const script_ref = {kind: document.getElementById('scriptKind').value, artifact_id: document.getElementById('scriptId').value};
+  if(!agent_type_id || !script_ref.artifact_id) return alert('agent_type_id and script_ref required');
+  const res = await post('/api/agents/register_scripted',{agent_type_id, version, security_flag, script_ref});
+  const agents = await api('/api/agents');
+  document.getElementById('agentsOut').textContent = pretty(agents);
+  document.getElementById('runAgentType').value = agent_type_id;
+}
+
+async function runAgent(){
+  const sid = document.getElementById('sessionSel').value;
+  const eid = document.getElementById('epochSel').value;
+  const agent_type_id = document.getElementById('runAgentType').value;
+  const actor_id = document.getElementById('actorId').value || 'operator';
+  let inputs = {};
+  try{ inputs = JSON.parse(document.getElementById('runInputs').value || '{}'); }catch(e){ return alert('inputs must be JSON');}
+  const res = await post('/api/agents/run',{session_id:sid, epoch_id:eid, agent_type_id, inputs, actor_id});
+  document.getElementById('runOut').textContent = pretty(res);
+  await refreshEvents();
+  await refreshPointers();
+}
+
+async function refreshEvents(){
+  const sid = document.getElementById('sessionSel').value;
+  if(!sid) return;
+  const ev = await api(`/api/events/${sid}?limit=200`);
+  document.getElementById('eventsOut').textContent = pretty(ev);
+}
+
+async function refreshPointers(){
+  const p = await api('/api/pointers');
+  document.getElementById('pointersOut').textContent = pretty(p);
+}
+
+function startRealtime(){
+  const out = document.getElementById('rtOut');
+  const es = new EventSource('/api/realtime');
+  es.onmessage = (e)=>{
+    out.textContent = e.data + "\n" + out.textContent;
+  }
+}
+document.getElementById('scriptTxt').value = JSON.stringify({
+  "script_id":"demo_clean_and_store",
+  "language":"kimaruscript.v1",
+  "steps":[
+    {"type":"algorithm","algorithm_id":"generic.data_cleaning.basic","inputs":{"rows":"${inputs.rows}"},"save_as":"cleaned"},
+    {"type":"store_artifact","kind":"scenario_patch","payload":{"cleaned_rows":"${vars.cleaned.rows}","stats":"${vars.cleaned.stats}"},"save_as":"patch_ref"},
+    {"type":"set_pointer","pointer_key":"artifact/scenario_patch/latest","artifact_ref":"${vars.patch_ref}"}
+  ]
+}, null, 2);
+
+document.getElementById('runInputs').value = JSON.stringify({"rows":[{"a":1,"b":null},{"a":2,"b":3},null]}, null, 2);
+
+refreshSessions().then(startRealtime);
+</script>
+</body>
+</html>
