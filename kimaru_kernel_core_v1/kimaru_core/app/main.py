@@ -62,7 +62,9 @@ app = FastAPI(title="Kimaru Kernel Common Core Demo", version="0.1.0")
 
 # Register v1 API routers
 from kimaru_core.app.api.v1 import manifest as manifest_v1
+from kimaru_core.app.api.v1 import setup as setup_v1
 app.include_router(manifest_v1.router)
+app.include_router(setup_v1.router)
 
 DEFAULT_TENANT = TenantRef(tenant_id="tenant_demo", display_name="Demo Tenant")
 DEFAULT_DCTX = DecisionContextRef(decision_context_id="decision_demo", description="Demo decision context")
@@ -236,3 +238,6 @@ def ui():
 def main():
     import uvicorn
     uvicorn.run("kimaru_core.app.main:app", host="127.0.0.1", port=8000, reload=False)
+
+if __name__ == "__main__":
+    main()

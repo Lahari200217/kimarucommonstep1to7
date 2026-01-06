@@ -10,15 +10,6 @@ router = APIRouter(prefix="/api/v1/manifests", tags=["manifests"])
 
 @router.post("", response_model=ManifestCreateResp)
 def create_manifest(req: ManifestCreateReq):
-    """Create a new manifest with specified zones.
-    
-    Request body:
-    - zones: list of zone IDs (e.g., ['zone1'])
-    - name: optional friendly name
-    - tenant_id: optional tenant identifier
-    
-    Returns: manifest_id and file location
-    """
     try:
         mid, location = svc_create_manifest(
             zones=req.zones,
