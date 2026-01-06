@@ -1,9 +1,0 @@
-{
-  "manifest_id": "manifest_898e0149ce58499a94264a5da2039f4c",
-  "name": "test_manifest",
-  "tenant_id": "tenant_demo",
-  "zones": [
-    "zone1"
-  ],
-  "created_at": "2026-01-06T04:53:55Z"
-}
